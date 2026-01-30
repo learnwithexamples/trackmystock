@@ -296,7 +296,7 @@
             { symbol: 'CLF', purchasePrice: 14.04, quantity: 7, purchaseDate: '2026-01-28' },
             { symbol: 'APH', purchasePrice: 148.06, quantity: 1.09, purchaseDate: '2026-01-28' },
             { symbol: 'TECK', purchasePrice: 56.47, quantity: 2, purchaseDate: '2026-01-28' },
-            { symbol: 'CEG', purchasePrice: 360.43, quantity: 0.5, purchaseDate: '2026-01-27' },
+            { symbol: 'CEG', purchasePrice: 360.43, quantity: 0.5, purchaseDate: '2026-01-28' },
             { symbol: 'CEG', purchasePrice: 288.72, quantity: 0.2, purchaseDate: '2026-01-28' },
             { symbol: 'MU', purchasePrice: 385, quantity: 0.3, purchaseDate: '2026-01-28' },
             { symbol: 'GLW', purchasePrice: 102, quantity: 0.5, purchaseDate: '2026-01-28' },
@@ -622,33 +622,34 @@
                 data.avgPrice = data.totalCost / data.quantity;
             });
 
-            const datasets = uniqueSymbols.map(symbol => {
+            // Reference date: Jan 28, 2026
+            const referenceDate = new Date('2026-01-28T00:00:00');
+            const referenceDateIndex = dates.findIndex(d => d.toDateString() === referenceDate.toDateString());
+            
+            // First pass: get all prices for all dates
+            const stockPrices = {};
+            uniqueSymbols.forEach(symbol => {
                 const stockData = aggregatedPortfolio[symbol];
                 const stockPurchaseDate = new Date(stockData.purchaseDate + 'T00:00:00');
                 const historicalPrices = historicalMap[symbol];
                 const currentPrice = currentPriceMap[symbol];
                 
-                const values = dates.map((date, dateIndex) => {
-                    // Return null for dates before purchase date
+                stockPrices[symbol] = dates.map((date, dateIndex) => {
                     if (date < stockPurchaseDate) {
                         return null;
                     }
                     
                     let price = null;
                     
-                    // For purchase date, use the purchase price
                     if (date.toDateString() === stockPurchaseDate.toDateString()) {
                         price = stockData.avgPrice;
                     }
-                    // For today, use current price from quote API
                     else if (date.toDateString() === today.toDateString() && currentPrice) {
                         price = currentPrice;
                     }
-                    // For other dates, look up historical price
                     else if (historicalPrices) {
                         const dateStr = date.toDateString();
                         
-                        // Try to find exact match
                         for (let i = 0; i < historicalPrices.timestamps.length; i++) {
                             const priceDate = new Date(historicalPrices.timestamps[i] * 1000);
                             if (priceDate.toDateString() === dateStr) {
@@ -657,7 +658,6 @@
                             }
                         }
                         
-                        // If no exact match, use the most recent price before this date
                         if (price === null) {
                             const dateTimestamp = Math.floor(date.getTime() / 1000);
                             for (let i = historicalPrices.timestamps.length - 1; i >= 0; i--) {
@@ -669,17 +669,46 @@
                         }
                     }
                     
-                    // Final fallback to current price if we have it
                     if (price === null && currentPrice) {
                         price = currentPrice;
                     }
                     
-                    // Ultimate fallback to purchase price
                     if (price === null) {
                         price = stockData.avgPrice;
                     }
                     
-                    return price * stockData.quantity;
+                    return price;
+                });
+            });
+
+            // Calculate reference prices (Jan 28) for normalization
+            const referencePrices = {};
+            uniqueSymbols.forEach(symbol => {
+                if (referenceDateIndex >= 0 && stockPrices[symbol][referenceDateIndex] !== null) {
+                    referencePrices[symbol] = stockPrices[symbol][referenceDateIndex];
+                } else {
+                    // Fallback to purchase price if Jan 28 not available
+                    referencePrices[symbol] = aggregatedPortfolio[symbol].avgPrice;
+                }
+            });
+
+            // Calculate reference total portfolio value on Jan 28
+            let referenceTotalValue = 0;
+            uniqueSymbols.forEach(symbol => {
+                const refPrice = referencePrices[symbol];
+                const quantity = aggregatedPortfolio[symbol].quantity;
+                referenceTotalValue += refPrice * quantity;
+            });
+
+            // Create normalized datasets for individual stocks
+            const datasets = uniqueSymbols.map(symbol => {
+                const stockData = aggregatedPortfolio[symbol];
+                const stockPurchaseDate = new Date(stockData.purchaseDate + 'T00:00:00');
+                const refPrice = referencePrices[symbol];
+                
+                const values = stockPrices[symbol].map((price, idx) => {
+                    if (price === null) return null;
+                    return price / refPrice;
                 });
 
                 return {
@@ -693,6 +722,35 @@
                     borderWidth: 2,
                     spanGaps: false
                 };
+            });
+
+            // Calculate total portfolio normalized values
+            const totalPortfolioValues = dates.map((date, idx) => {
+                let totalValue = 0;
+                let hasValue = false;
+                
+                uniqueSymbols.forEach(symbol => {
+                    const price = stockPrices[symbol][idx];
+                    if (price !== null) {
+                        totalValue += price * aggregatedPortfolio[symbol].quantity;
+                        hasValue = true;
+                    }
+                });
+                
+                return hasValue ? totalValue / referenceTotalValue : null;
+            });
+
+            // Add total portfolio dataset
+            datasets.push({
+                label: 'Total Portfolio',
+                data: totalPortfolioValues,
+                borderColor: '#ff4757',
+                backgroundColor: 'transparent',
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                borderWidth: 3,
+                spanGaps: false
             });
 
             const labels = dates.map(date => {
@@ -723,16 +781,14 @@
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    const symbol = context.dataset.label;
+                                    const label = context.dataset.label;
                                     const value = context.parsed.y;
                                     if (value === null) return null;
                                     
-                                    const stockData = aggregatedPortfolio[symbol];
-                                    const gainLoss = value - stockData.totalCost;
-                                    const gainLossPercent = ((gainLoss / stockData.totalCost) * 100).toFixed(2);
+                                    const change = ((value - 1) * 100).toFixed(2);
                                     return [
-                                        `${symbol}: $${value.toFixed(2)}`,
-                                        `Gain/Loss: ${gainLoss >= 0 ? '+' : ''}$${gainLoss.toFixed(2)} (${gainLoss >= 0 ? '+' : ''}${gainLossPercent}%)`
+                                        `${label}: ${value.toFixed(3)}x`,
+                                        `Change: ${change >= 0 ? '+' : ''}${change}%`
                                     ];
                                 }
                             }
@@ -743,7 +799,7 @@
                             beginAtZero: false,
                             ticks: {
                                 callback: function(value) {
-                                    return '$' + value.toFixed(0);
+                                    return value.toFixed(2) + 'x';
                                 }
                             }
                         }
