@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Trade Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .card h3 {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .card .positive {
+            color: #10b981;
+        }
+
+        .card .negative {
+            color: #ef4444;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .table-container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .update-time {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .refresh-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .api-key-section {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .api-key-section input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+
+        .api-key-section button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .api-key-section p {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .api-key-section a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 Stock Trade Simulator</h1>
+        
+        <div class="api-key-section" id="apiKeySection">
+            <h3>API Configuration</h3>
+            <p>This tracker uses Finnhub API for real-time stock prices. Get your free API key at <a href="https://finnhub.io/" target="_blank">finnhub.io</a></p>
+            <input type="text" id="apiKeyInput" placeholder="Enter your Finnhub API key">
+            <button onclick="saveApiKey()">Save API Key</button>
+        </div>
+
+        <div class="update-time" id="updateTime"></div>
+        
+        <button class="refresh-btn" onclick="refreshPrices()" id="refreshBtn">🔄 Refresh Prices</button>
+
+        <div id="errorContainer"></div>
+
+        <div class="summary-cards">
+            <div class="card">
+                <h3>Total Investment</h3>
+                <div class="value" id="totalInvestment">$0.00</div>
+            </div>
+            <div class="card">
+                <h3>Current Value</h3>
+                <div class="value" id="currentValue">$0.00</div>
+            </div>
+            <div class="card">
+                <h3>Total Gain/Loss</h3>
+                <div class="value" id="totalGainLoss">$0.00</div>
+            </div>
+            <div class="card">
+                <h3>Return %</h3>
+                <div class="value" id="returnPercent">0.00%</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="table-container">
+                <h2 style="margin-bottom: 20px;">Portfolio Holdings</h2>
+                <div class="loading" id="loading">Loading portfolio data...</div>
+                <table id="portfolioTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Quantity</th>
+                            <th>Purchase Price</th>
+                            <th>Current Price</th>
+                            <th>Total Cost</th>
+                            <th>Current Value</th>
+                            <th>Gain/Loss</th>
+                            <th>Return %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portfolioBody"></tbody>
+                </table>
+            </div>
+
+            <div class="chart-container">
+                <h2 style="margin-bottom: 20px;">Portfolio Composition</h2>
+                <canvas id="portfolioChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const portfolio = [
+            { symbol: 'ET', purchasePrice: 18.105, quantity: 10 },
+            { symbol: 'ETN', purchasePrice: 344.02, quantity: 0.5 },
+            { symbol: 'CLF', purchasePrice: 14.04, quantity: 7 },
+            { symbol: 'APH', purchasePrice: 148.06, quantity: 1.09 },
+            { symbol: 'TECK', purchasePrice: 56.47, quantity: 2 },
+            { symbol: 'CEG', purchasePrice: 360.43, quantity: 0.5 },
+            { symbol: 'CEG', purchasePrice: 288.72, quantity: 0.2 },
+            { symbol: 'MU', purchasePrice: 385, quantity: 0.3 },
+            { symbol: 'GLW', purchasePrice: 102, quantity: 0.5 },
+            { symbol: 'STX', purchasePrice: 345, quantity: 0.15 },
+            { symbol: 'GEV', purchasePrice: 650, quantity: 0.08 }
+        ];
+
+        let apiKey = localStorage.getItem('finnhubApiKey') || '';
+        let chart = null;
+
+        if (apiKey) {
+            document.getElementById('apiKeySection').style.display = 'none';
+            initializePortfolio();
+        } else {
+            document.getElementById('apiKeyInput').value = apiKey;
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (key) {
+                apiKey = key;
+                localStorage.setItem('finnhubApiKey', key);
+                document.getElementById('apiKeySection').style.display = 'none';
+                initializePortfolio();
+            } else {
+                alert('Please enter a valid API key');
+            }
+        }
+
+        async function fetchStockPrice(symbol) {
+            try {
+                const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`);
+                const data = await response.json();
+                
+                if (data.c && data.c > 0) {
+                    return data.c;
+                } else {
+                    throw new Error('Invalid price data');
+                }
+            } catch (error) {
+                console.error(`Error fetching ${symbol}:`, error);
+                return null;
+            }
+        }
+
+        async function initializePortfolio() {
+            await refreshPrices();
+        }
+
+        async function refreshPrices() {
+            const btn = document.getElementById('refreshBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Loading...';
+            document.getElementById('errorContainer').innerHTML = '';
+
+            try {
+                const uniqueSymbols = [...new Set(portfolio.map(p => p.symbol))];
+                
+                const pricePromises = uniqueSymbols.map(symbol => 
+                    fetchStockPrice(symbol).then(price => ({ symbol, price }))
+                );
+                
+                const prices = await Promise.all(pricePromises);
+                const priceMap = {};
+                prices.forEach(p => {
+                    if (p.price !== null) {
+                        priceMap[p.symbol] = p.price;
+                    }
+                });
+
+                const missingPrices = uniqueSymbols.filter(s => !priceMap[s]);
+                if (missingPrices.length > 0) {
+                    showError(`Warning: Could not fetch prices for: ${missingPrices.join(', ')}`);
+                }
+
+                updatePortfolioDisplay(priceMap);
+                updateChart(priceMap);
+                
+                document.getElementById('updateTime').textContent = 
+                    `Last updated: ${new Date().toLocaleString()}`;
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('portfolioTable').style.display = 'table';
+            } catch (error) {
+                showError('Error fetching stock prices. Please check your API key and try again.');
+                console.error('Error:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Refresh Prices';
+            }
+        }
+
+        function updatePortfolioDisplay(priceMap) {
+            const tbody = document.getElementById('portfolioBody');
+            tbody.innerHTML = '';
+
+            let totalInvestment = 0;
+            let totalCurrentValue = 0;
+
+            portfolio.forEach(stock => {
+                const currentPrice = priceMap[stock.symbol] || 0;
+                const totalCost = stock.purchasePrice * stock.quantity;
+                const currentValue = currentPrice * stock.quantity;
+                const gainLoss = currentValue - totalCost;
+                const returnPercent = totalCost > 0 ? (gainLoss / totalCost * 100) : 0;
+
+                totalInvestment += totalCost;
+                totalCurrentValue += currentValue;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${stock.symbol}</strong></td>
+                    <td>${stock.quantity}</td>
+                    <td>$${stock.purchasePrice.toFixed(2)}</td>
+                    <td>$${currentPrice.toFixed(2)}</td>
+                    <td>$${totalCost.toFixed(2)}</td>
+                    <td>$${currentValue.toFixed(2)}</td>
+                    <td class="${gainLoss >= 0 ? 'positive' : 'negative'}">
+                        ${gainLoss >= 0 ? '+' : ''}$${gainLoss.toFixed(2)}
+                    </td>
+                    <td class="${returnPercent >= 0 ? 'positive' : 'negative'}">
+                        ${returnPercent >= 0 ? '+' : ''}${returnPercent.toFixed(2)}%
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            const totalGainLoss = totalCurrentValue - totalInvestment;
+            const totalReturnPercent = totalInvestment > 0 ? (totalGainLoss / totalInvestment * 100) : 0;
+
+            document.getElementById('totalInvestment').textContent = `$${totalInvestment.toFixed(2)}`;
+            document.getElementById('currentValue').textContent = `$${totalCurrentValue.toFixed(2)}`;
+            
+            const gainLossElement = document.getElementById('totalGainLoss');
+            gainLossElement.textContent = `${totalGainLoss >= 0 ? '+' : ''}$${totalGainLoss.toFixed(2)}`;
+            gainLossElement.className = `value ${totalGainLoss >= 0 ? 'positive' : 'negative'}`;
+            
+            const returnElement = document.getElementById('returnPercent');
+            returnElement.textContent = `${totalReturnPercent >= 0 ? '+' : ''}${totalReturnPercent.toFixed(2)}%`;
+            returnElement.className = `value ${totalReturnPercent >= 0 ? 'positive' : 'negative'}`;
+        }
+
+        function updateChart(priceMap) {
+            const aggregated = {};
+            portfolio.forEach(stock => {
+                const currentPrice = priceMap[stock.symbol] || 0;
+                const currentValue = currentPrice * stock.quantity;
+                
+                if (aggregated[stock.symbol]) {
+                    aggregated[stock.symbol] += currentValue;
+                } else {
+                    aggregated[stock.symbol] = currentValue;
+                }
+            });
+
+            const labels = Object.keys(aggregated);
+            const data = Object.values(aggregated);
+
+            const ctx = document.getElementById('portfolioChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            '#667eea',
+                            '#764ba2',
+                            '#f093fb',
+                            '#4facfe',
+                            '#43e97b',
+                            '#fa709a',
+                            '#fee140',
+                            '#30cfd0',
+                            '#a8edea',
+                            '#ff6b6b',
+                            '#4ecdc4'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        setInterval(() => {
+            if (apiKey && document.getElementById('portfolioTable').style.display !== 'none') {
+                refreshPrices();
+            }
+        }, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
