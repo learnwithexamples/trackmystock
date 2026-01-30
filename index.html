@@ -269,6 +269,7 @@
                             <th>Current Price</th>
                             <th>Total Cost</th>
                             <th>Current Value</th>
+                            <th>Portfolio %</th>
                             <th>Gain/Loss</th>
                             <th>Return %</th>
                         </tr>
@@ -333,10 +334,16 @@
                 const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`);
                 const data = await response.json();
                 
+                if (data.error) {
+                    console.error(`API Error for ${symbol}:`, data.error);
+                    return null;
+                }
+                
                 if (data.c && data.c > 0) {
                     return data.c;
                 } else {
-                    throw new Error('Invalid price data');
+                    console.warn(`No valid price data for ${symbol}:`, data);
+                    return null;
                 }
             } catch (error) {
                 console.error(`Error fetching ${symbol}:`, error);
@@ -422,7 +429,8 @@
             let totalInvestment = 0;
             let totalCurrentValue = 0;
 
-            portfolio.forEach(stock => {
+            // First pass: calculate totals
+            const stockData = portfolio.map(stock => {
                 const currentPrice = priceMap[stock.symbol] || 0;
                 const totalCost = stock.purchasePrice * stock.quantity;
                 const currentValue = currentPrice * stock.quantity;
@@ -435,20 +443,36 @@
                 const [year, month, day] = stock.purchaseDate.split('-');
                 const formattedDate = `${month}-${day}`;
                 
+                return {
+                    stock,
+                    currentPrice,
+                    totalCost,
+                    currentValue,
+                    gainLoss,
+                    returnPercent,
+                    formattedDate
+                };
+            });
+
+            // Second pass: create rows with correct portfolio percentages
+            stockData.forEach(data => {
+                const portfolioPercent = totalCurrentValue > 0 ? (data.currentValue / totalCurrentValue * 100) : 0;
+                
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><strong>${stock.symbol}</strong></td>
-                    <td>${formattedDate}</td>
-                    <td>${stock.quantity}</td>
-                    <td>$${stock.purchasePrice.toFixed(2)}</td>
-                    <td>$${currentPrice.toFixed(2)}</td>
-                    <td>$${totalCost.toFixed(2)}</td>
-                    <td>$${currentValue.toFixed(2)}</td>
-                    <td class="${gainLoss >= 0 ? 'positive' : 'negative'}">
-                        ${gainLoss >= 0 ? '+' : ''}$${gainLoss.toFixed(2)}
+                    <td><strong>${data.stock.symbol}</strong></td>
+                    <td>${data.formattedDate}</td>
+                    <td>${data.stock.quantity}</td>
+                    <td>$${data.stock.purchasePrice.toFixed(2)}</td>
+                    <td>$${data.currentPrice.toFixed(2)}</td>
+                    <td>$${data.totalCost.toFixed(2)}</td>
+                    <td>$${data.currentValue.toFixed(2)}</td>
+                    <td>${portfolioPercent.toFixed(2)}%</td>
+                    <td class="${data.gainLoss >= 0 ? 'positive' : 'negative'}">
+                        ${data.gainLoss >= 0 ? '+' : ''}$${data.gainLoss.toFixed(2)}
                     </td>
-                    <td class="${returnPercent >= 0 ? 'positive' : 'negative'}">
-                        ${returnPercent >= 0 ? '+' : ''}${returnPercent.toFixed(2)}%
+                    <td class="${data.returnPercent >= 0 ? 'positive' : 'negative'}">
+                        ${data.returnPercent >= 0 ? '+' : ''}${data.returnPercent.toFixed(2)}%
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -465,6 +489,7 @@
                 <td colspan="5" style="text-align: right;"><strong>TOTAL</strong></td>
                 <td><strong>$${totalInvestment.toFixed(2)}</strong></td>
                 <td><strong>$${totalCurrentValue.toFixed(2)}</strong></td>
+                <td><strong>100.00%</strong></td>
                 <td class="${totalGainLoss >= 0 ? 'positive' : 'negative'}">
                     <strong>${totalGainLoss >= 0 ? '+' : ''}$${totalGainLoss.toFixed(2)}</strong>
                 </td>
