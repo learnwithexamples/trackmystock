@@ -268,6 +268,7 @@
                     <thead>
                         <tr>
                             <th>Symbol</th>
+                            <th>Purchase Date</th>
                             <th>Quantity</th>
                             <th>Purchase Price</th>
                             <th>Current Price</th>
@@ -290,17 +291,17 @@
 
     <script>
         const portfolio = [
-            { symbol: 'ET', purchasePrice: 18.105, quantity: 10 },
-            { symbol: 'ETN', purchasePrice: 344.02, quantity: 0.5 },
-            { symbol: 'CLF', purchasePrice: 14.04, quantity: 7 },
-            { symbol: 'APH', purchasePrice: 148.06, quantity: 1.09 },
-            { symbol: 'TECK', purchasePrice: 56.47, quantity: 2 },
-            { symbol: 'CEG', purchasePrice: 360.43, quantity: 0.5 },
-            { symbol: 'CEG', purchasePrice: 288.72, quantity: 0.2 },
-            { symbol: 'MU', purchasePrice: 385, quantity: 0.3 },
-            { symbol: 'GLW', purchasePrice: 102, quantity: 0.5 },
-            { symbol: 'STX', purchasePrice: 345, quantity: 0.15 },
-            { symbol: 'GEV', purchasePrice: 650, quantity: 0.08 }
+            { symbol: 'ET', purchasePrice: 18.105, quantity: 10, purchaseDate: '2026-01-28' },
+            { symbol: 'ETN', purchasePrice: 344.02, quantity: 0.5, purchaseDate: '2026-01-28' },
+            { symbol: 'CLF', purchasePrice: 14.04, quantity: 7, purchaseDate: '2026-01-28' },
+            { symbol: 'APH', purchasePrice: 148.06, quantity: 1.09, purchaseDate: '2026-01-28' },
+            { symbol: 'TECK', purchasePrice: 56.47, quantity: 2, purchaseDate: '2026-01-28' },
+            { symbol: 'CEG', purchasePrice: 360.43, quantity: 0.5, purchaseDate: '2026-01-27' },
+            { symbol: 'CEG', purchasePrice: 288.72, quantity: 0.2, purchaseDate: '2026-01-28' },
+            { symbol: 'MU', purchasePrice: 385, quantity: 0.3, purchaseDate: '2026-01-28' },
+            { symbol: 'GLW', purchasePrice: 102, quantity: 0.5, purchaseDate: '2026-01-28' },
+            { symbol: 'STX', purchasePrice: 345, quantity: 0.15, purchaseDate: '2026-01-28' },
+            { symbol: 'GEV', purchasePrice: 650, quantity: 0.08, purchaseDate: '2026-01-28' }
         ];
 
         let apiKey = localStorage.getItem('finnhubApiKey') || '';
@@ -431,9 +432,13 @@
                 totalInvestment += totalCost;
                 totalCurrentValue += currentValue;
 
+                const [year, month, day] = stock.purchaseDate.split('-');
+                const formattedDate = `${month}-${day}`;
+                
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${stock.symbol}</strong></td>
+                    <td>${formattedDate}</td>
                     <td>${stock.quantity}</td>
                     <td>$${stock.purchasePrice.toFixed(2)}</td>
                     <td>$${currentPrice.toFixed(2)}</td>
@@ -532,7 +537,14 @@
 
         async function updateTrendChart() {
             const today = new Date();
-            const fromDate = new Date(purchaseDate);
+            
+            // Find the earliest purchase date
+            const earliestDate = portfolio.reduce((earliest, stock) => {
+                const stockDate = new Date(stock.purchaseDate + 'T00:00:00');
+                return !earliest || stockDate < earliest ? stockDate : earliest;
+            }, null);
+            
+            const fromDate = new Date(earliestDate);
             fromDate.setDate(fromDate.getDate() - 1);
             
             const uniqueSymbols = [...new Set(portfolio.map(p => p.symbol))];
@@ -550,7 +562,7 @@
             });
 
             const dates = [];
-            const currentDate = new Date('2026-01-28');
+            const currentDate = new Date(earliestDate);
             while (currentDate <= today) {
                 dates.push(new Date(currentDate));
                 currentDate.setDate(currentDate.getDate() + 1);
@@ -572,13 +584,20 @@
             const aggregatedPortfolio = {};
             portfolio.forEach(stock => {
                 if (aggregatedPortfolio[stock.symbol]) {
+                    // For multiple purchases, use the earliest date and aggregate
+                    const existingDate = new Date(aggregatedPortfolio[stock.symbol].purchaseDate + 'T00:00:00');
+                    const newDate = new Date(stock.purchaseDate + 'T00:00:00');
+                    if (newDate < existingDate) {
+                        aggregatedPortfolio[stock.symbol].purchaseDate = stock.purchaseDate;
+                    }
                     aggregatedPortfolio[stock.symbol].quantity += stock.quantity;
                     aggregatedPortfolio[stock.symbol].totalCost += stock.purchasePrice * stock.quantity;
                 } else {
                     aggregatedPortfolio[stock.symbol] = {
                         quantity: stock.quantity,
                         totalCost: stock.purchasePrice * stock.quantity,
-                        avgPrice: stock.purchasePrice
+                        avgPrice: stock.purchasePrice,
+                        purchaseDate: stock.purchaseDate
                     };
                 }
             });
@@ -590,7 +609,14 @@
 
             const datasets = uniqueSymbols.map(symbol => {
                 const stockData = aggregatedPortfolio[symbol];
-                const values = dates.map((date, dateIndex) => {
+                const stockPurchaseDate = new Date(stockData.purchaseDate + 'T00:00:00');
+                
+                const values = dates.map((date) => {
+                    // Return null for dates before purchase date
+                    if (date < stockPurchaseDate) {
+                        return null;
+                    }
+                    
                     const historicalPrices = historicalMap[symbol];
                     let price = stockData.avgPrice;
                     
@@ -603,7 +629,7 @@
                         
                         if (priceIndex >= 0) {
                             price = historicalPrices.prices[priceIndex];
-                        } else if (dateIndex === 0) {
+                        } else if (date.toDateString() === stockPurchaseDate.toDateString()) {
                             price = stockData.avgPrice;
                         } else {
                             for (let i = historicalPrices.timestamps.length - 1; i >= 0; i--) {
@@ -626,7 +652,8 @@
                     tension: 0.4,
                     pointRadius: 3,
                     pointHoverRadius: 5,
-                    borderWidth: 2
+                    borderWidth: 2,
+                    spanGaps: false
                 };
             });
 
@@ -659,7 +686,9 @@
                             callbacks: {
                                 label: function(context) {
                                     const symbol = context.dataset.label;
-                                    const value = context.parsed.y || 0;
+                                    const value = context.parsed.y;
+                                    if (value === null) return null;
+                                    
                                     const stockData = aggregatedPortfolio[symbol];
                                     const gainLoss = value - stockData.totalCost;
                                     const gainLossPercent = ((gainLoss / stockData.totalCost) * 100).toFixed(2);
