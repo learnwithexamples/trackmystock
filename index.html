@@ -549,15 +549,31 @@
             
             const uniqueSymbols = [...new Set(portfolio.map(p => p.symbol))];
             
+            // Fetch both historical and current prices
             const historicalPromises = uniqueSymbols.map(symbol => 
                 fetchHistoricalPrices(symbol, fromDate, today).then(data => ({ symbol, data }))
             );
             
-            const historicalData = await Promise.all(historicalPromises);
+            const currentPricePromises = uniqueSymbols.map(symbol => 
+                fetchStockPrice(symbol).then(price => ({ symbol, price }))
+            );
+            
+            const [historicalData, currentPrices] = await Promise.all([
+                Promise.all(historicalPromises),
+                Promise.all(currentPricePromises)
+            ]);
+            
             const historicalMap = {};
             historicalData.forEach(h => {
                 if (h.data) {
                     historicalMap[h.symbol] = h.data;
+                }
+            });
+            
+            const currentPriceMap = {};
+            currentPrices.forEach(p => {
+                if (p.price) {
+                    currentPriceMap[p.symbol] = p.price;
                 }
             });
 
@@ -584,7 +600,6 @@
             const aggregatedPortfolio = {};
             portfolio.forEach(stock => {
                 if (aggregatedPortfolio[stock.symbol]) {
-                    // For multiple purchases, use the earliest date and aggregate
                     const existingDate = new Date(aggregatedPortfolio[stock.symbol].purchaseDate + 'T00:00:00');
                     const newDate = new Date(stock.purchaseDate + 'T00:00:00');
                     if (newDate < existingDate) {
@@ -610,28 +625,41 @@
             const datasets = uniqueSymbols.map(symbol => {
                 const stockData = aggregatedPortfolio[symbol];
                 const stockPurchaseDate = new Date(stockData.purchaseDate + 'T00:00:00');
+                const historicalPrices = historicalMap[symbol];
+                const currentPrice = currentPriceMap[symbol];
                 
-                const values = dates.map((date) => {
+                const values = dates.map((date, dateIndex) => {
                     // Return null for dates before purchase date
                     if (date < stockPurchaseDate) {
                         return null;
                     }
                     
-                    const historicalPrices = historicalMap[symbol];
-                    let price = stockData.avgPrice;
+                    let price = null;
                     
-                    if (historicalPrices) {
-                        const dateTimestamp = Math.floor(date.getTime() / 1000);
-                        const priceIndex = historicalPrices.timestamps.findIndex(t => {
-                            const priceDate = new Date(t * 1000);
-                            return priceDate.toDateString() === date.toDateString();
-                        });
+                    // For purchase date, use the purchase price
+                    if (date.toDateString() === stockPurchaseDate.toDateString()) {
+                        price = stockData.avgPrice;
+                    }
+                    // For today, use current price from quote API
+                    else if (date.toDateString() === today.toDateString() && currentPrice) {
+                        price = currentPrice;
+                    }
+                    // For other dates, look up historical price
+                    else if (historicalPrices) {
+                        const dateStr = date.toDateString();
                         
-                        if (priceIndex >= 0) {
-                            price = historicalPrices.prices[priceIndex];
-                        } else if (date.toDateString() === stockPurchaseDate.toDateString()) {
-                            price = stockData.avgPrice;
-                        } else {
+                        // Try to find exact match
+                        for (let i = 0; i < historicalPrices.timestamps.length; i++) {
+                            const priceDate = new Date(historicalPrices.timestamps[i] * 1000);
+                            if (priceDate.toDateString() === dateStr) {
+                                price = historicalPrices.prices[i];
+                                break;
+                            }
+                        }
+                        
+                        // If no exact match, use the most recent price before this date
+                        if (price === null) {
+                            const dateTimestamp = Math.floor(date.getTime() / 1000);
                             for (let i = historicalPrices.timestamps.length - 1; i >= 0; i--) {
                                 if (historicalPrices.timestamps[i] <= dateTimestamp) {
                                     price = historicalPrices.prices[i];
@@ -639,6 +667,16 @@
                                 }
                             }
                         }
+                    }
+                    
+                    // Final fallback to current price if we have it
+                    if (price === null && currentPrice) {
+                        price = currentPrice;
+                    }
+                    
+                    // Ultimate fallback to purchase price
+                    if (price === null) {
+                        price = stockData.avgPrice;
                     }
                     
                     return price * stockData.quantity;
