@@ -255,11 +255,6 @@
             </div>
         </div>
 
-        <div class="trend-chart-container">
-            <h2 style="margin-bottom: 20px;">Portfolio Value Trend</h2>
-            <canvas id="trendChart"></canvas>
-        </div>
-
         <div class="main-content">
             <div class="table-container">
                 <h2 style="margin-bottom: 20px;">Portfolio Holdings</h2>
@@ -286,6 +281,11 @@
                 <h2 style="margin-bottom: 20px;">Portfolio Composition</h2>
                 <canvas id="portfolioChart"></canvas>
             </div>
+        </div>
+
+        <div class="trend-chart-container">
+            <h2 style="margin-bottom: 20px;">Portfolio Value Trend</h2>
+            <canvas id="trendChart"></canvas>
         </div>
     </div>
 
@@ -456,6 +456,23 @@
 
             const totalGainLoss = totalCurrentValue - totalInvestment;
             const totalReturnPercent = totalInvestment > 0 ? (totalGainLoss / totalInvestment * 100) : 0;
+
+            // Add total row
+            const totalRow = document.createElement('tr');
+            totalRow.style.borderTop = '2px solid #333';
+            totalRow.style.fontWeight = 'bold';
+            totalRow.innerHTML = `
+                <td colspan="5" style="text-align: right;"><strong>TOTAL</strong></td>
+                <td><strong>$${totalInvestment.toFixed(2)}</strong></td>
+                <td><strong>$${totalCurrentValue.toFixed(2)}</strong></td>
+                <td class="${totalGainLoss >= 0 ? 'positive' : 'negative'}">
+                    <strong>${totalGainLoss >= 0 ? '+' : ''}$${totalGainLoss.toFixed(2)}</strong>
+                </td>
+                <td class="${totalReturnPercent >= 0 ? 'positive' : 'negative'}">
+                    <strong>${totalReturnPercent >= 0 ? '+' : ''}${totalReturnPercent.toFixed(2)}%</strong>
+                </td>
+            `;
+            tbody.appendChild(totalRow);
 
             document.getElementById('totalInvestment').textContent = `$${totalInvestment.toFixed(2)}`;
             document.getElementById('currentValue').textContent = `$${totalCurrentValue.toFixed(2)}`;
