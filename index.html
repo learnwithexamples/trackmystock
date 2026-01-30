@@ -73,6 +73,14 @@
             color: #ef4444;
         }
 
+        .trend-chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
         .main-content {
             display: grid;
             grid-template-columns: 2fr 1fr;
@@ -247,6 +255,11 @@
             </div>
         </div>
 
+        <div class="trend-chart-container">
+            <h2 style="margin-bottom: 20px;">Portfolio Value Trend</h2>
+            <canvas id="trendChart"></canvas>
+        </div>
+
         <div class="main-content">
             <div class="table-container">
                 <h2 style="margin-bottom: 20px;">Portfolio Holdings</h2>
@@ -292,6 +305,8 @@
 
         let apiKey = localStorage.getItem('finnhubApiKey') || '';
         let chart = null;
+        let trendChart = null;
+        const purchaseDate = new Date('2026-01-28');
 
         if (apiKey) {
             document.getElementById('apiKeySection').style.display = 'none';
@@ -328,6 +343,29 @@
             }
         }
 
+        async function fetchHistoricalPrices(symbol, fromDate, toDate) {
+            try {
+                const from = Math.floor(fromDate.getTime() / 1000);
+                const to = Math.floor(toDate.getTime() / 1000);
+                const response = await fetch(
+                    `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${apiKey}`
+                );
+                const data = await response.json();
+                
+                if (data.s === 'ok' && data.c && data.c.length > 0) {
+                    return {
+                        timestamps: data.t,
+                        prices: data.c
+                    };
+                } else {
+                    return null;
+                }
+            } catch (error) {
+                console.error(`Error fetching historical data for ${symbol}:`, error);
+                return null;
+            }
+        }
+
         async function initializePortfolio() {
             await refreshPrices();
         }
@@ -360,6 +398,7 @@
 
                 updatePortfolioDisplay(priceMap);
                 updateChart(priceMap);
+                await updateTrendChart();
                 
                 document.getElementById('updateTime').textContent = 
                     `Last updated: ${new Date().toLocaleString()}`;
@@ -483,6 +522,161 @@
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
                                     return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function updateTrendChart() {
+            const today = new Date();
+            const fromDate = new Date(purchaseDate);
+            fromDate.setDate(fromDate.getDate() - 1);
+            
+            const uniqueSymbols = [...new Set(portfolio.map(p => p.symbol))];
+            
+            const historicalPromises = uniqueSymbols.map(symbol => 
+                fetchHistoricalPrices(symbol, fromDate, today).then(data => ({ symbol, data }))
+            );
+            
+            const historicalData = await Promise.all(historicalPromises);
+            const historicalMap = {};
+            historicalData.forEach(h => {
+                if (h.data) {
+                    historicalMap[h.symbol] = h.data;
+                }
+            });
+
+            const dates = [];
+            const currentDate = new Date('2026-01-28');
+            while (currentDate <= today) {
+                dates.push(new Date(currentDate));
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            const stockColors = {
+                'ET': '#667eea',
+                'ETN': '#764ba2',
+                'CLF': '#f093fb',
+                'APH': '#4facfe',
+                'TECK': '#43e97b',
+                'CEG': '#fa709a',
+                'MU': '#fee140',
+                'GLW': '#30cfd0',
+                'STX': '#a8edea',
+                'GEV': '#ff6b6b'
+            };
+
+            const aggregatedPortfolio = {};
+            portfolio.forEach(stock => {
+                if (aggregatedPortfolio[stock.symbol]) {
+                    aggregatedPortfolio[stock.symbol].quantity += stock.quantity;
+                    aggregatedPortfolio[stock.symbol].totalCost += stock.purchasePrice * stock.quantity;
+                } else {
+                    aggregatedPortfolio[stock.symbol] = {
+                        quantity: stock.quantity,
+                        totalCost: stock.purchasePrice * stock.quantity,
+                        avgPrice: stock.purchasePrice
+                    };
+                }
+            });
+
+            Object.keys(aggregatedPortfolio).forEach(symbol => {
+                const data = aggregatedPortfolio[symbol];
+                data.avgPrice = data.totalCost / data.quantity;
+            });
+
+            const datasets = uniqueSymbols.map(symbol => {
+                const stockData = aggregatedPortfolio[symbol];
+                const values = dates.map((date, dateIndex) => {
+                    const historicalPrices = historicalMap[symbol];
+                    let price = stockData.avgPrice;
+                    
+                    if (historicalPrices) {
+                        const dateTimestamp = Math.floor(date.getTime() / 1000);
+                        const priceIndex = historicalPrices.timestamps.findIndex(t => {
+                            const priceDate = new Date(t * 1000);
+                            return priceDate.toDateString() === date.toDateString();
+                        });
+                        
+                        if (priceIndex >= 0) {
+                            price = historicalPrices.prices[priceIndex];
+                        } else if (dateIndex === 0) {
+                            price = stockData.avgPrice;
+                        } else {
+                            for (let i = historicalPrices.timestamps.length - 1; i >= 0; i--) {
+                                if (historicalPrices.timestamps[i] <= dateTimestamp) {
+                                    price = historicalPrices.prices[i];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    return price * stockData.quantity;
+                });
+
+                return {
+                    label: symbol,
+                    data: values,
+                    borderColor: stockColors[symbol] || '#999',
+                    backgroundColor: 'transparent',
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2
+                };
+            });
+
+            const labels = dates.map(date => {
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${month}-${day}`;
+            });
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (trendChart) {
+                trendChart.destroy();
+            }
+
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const symbol = context.dataset.label;
+                                    const value = context.parsed.y || 0;
+                                    const stockData = aggregatedPortfolio[symbol];
+                                    const gainLoss = value - stockData.totalCost;
+                                    const gainLossPercent = ((gainLoss / stockData.totalCost) * 100).toFixed(2);
+                                    return [
+                                        `${symbol}: $${value.toFixed(2)}`,
+                                        `Gain/Loss: ${gainLoss >= 0 ? '+' : ''}$${gainLoss.toFixed(2)} (${gainLoss >= 0 ? '+' : ''}${gainLossPercent}%)`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(0);
                                 }
                             }
                         }
