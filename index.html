@@ -151,6 +151,37 @@
             margin-bottom: 20px;
         }
 
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s;
+            margin-bottom: -2px;
+        }
+
+        .tab:hover {
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: 600;
+        }
+
         .update-time {
             color: white;
             text-align: center;
@@ -259,6 +290,13 @@
             </div>
         </div>
 
+        <div class="tabs">
+            <button class="tab" data-tab="open-orders" onclick="switchTab('open-orders')">Open Orders</button>
+            <button class="tab" data-tab="short-term" onclick="switchTab('short-term')">Short Term</button>
+            <button class="tab" data-tab="mid-long-term" onclick="switchTab('mid-long-term')">Mid-Long Term</button>
+            <button class="tab active" data-tab="all" onclick="switchTab('all')">All</button>
+        </div>
+
         <div class="main-content">
             <div class="table-container">
                 <h2 style="margin-bottom: 20px;">Portfolio Holdings</h2>
@@ -296,19 +334,20 @@
 
     <script>
         const portfolio = [
-            { symbol: 'ET', purchasePrice: 18.105, quantity: 10, purchaseDate: '2026-01-28' },
-            { symbol: 'ETN', purchasePrice: 344.02, quantity: 0.5, purchaseDate: '2026-01-28' },
-            { symbol: 'CLF', purchasePrice: 14.04, quantity: 7, purchaseDate: '2026-01-28' },
-            { symbol: 'APH', purchasePrice: 148.06, quantity: 1.09, purchaseDate: '2026-01-28' },
-            { symbol: 'TECK', purchasePrice: 56.47, quantity: 2, purchaseDate: '2026-01-28' },
-            { symbol: 'CEG', purchasePrice: 360.43, quantity: 0.5, purchaseDate: '2026-01-28' },
-            { symbol: 'CEG', purchasePrice: 288.72, quantity: 0.2, purchaseDate: '2026-01-28' },
-            { symbol: 'MU', purchasePrice: 385, quantity: 0.3, purchaseDate: '2026-01-28' },
-            { symbol: 'GLW', purchasePrice: 102, quantity: 0.5, purchaseDate: '2026-01-28' },
-            { symbol: 'STX', purchasePrice: 345, quantity: 0.15, purchaseDate: '2026-01-28' },
-            { symbol: 'GEV', purchasePrice: 650, quantity: 0.08, purchaseDate: '2026-01-28' }
+            { symbol: 'ET', purchasePrice: 18.105, quantity: 10, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'ETN', purchasePrice: 344.02, quantity: 0.5, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'CLF', purchasePrice: 14.04, quantity: 7, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'APH', purchasePrice: 148.06, quantity: 1.09, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'TECK', purchasePrice: 56.47, quantity: 2, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'CEG', purchasePrice: 360.43, quantity: 0.5, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'CEG', purchasePrice: 288.72, quantity: 0.2, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'MU', purchasePrice: 385, quantity: 0.3, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'GLW', purchasePrice: 102, quantity: 0.5, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'STX', purchasePrice: 345, quantity: 0.15, purchaseDate: '2026-01-28', category: 'open-orders' },
+            { symbol: 'GEV', purchasePrice: 650, quantity: 0.08, purchaseDate: '2026-01-28', category: 'open-orders' }
         ];
 
+        let currentTab = 'all';
         let apiKey = localStorage.getItem('finnhubApiKey') || '';
         let chart = null;
         let trendChart = null;
@@ -331,6 +370,26 @@
             } else {
                 alert('Please enter a valid API key');
             }
+        }
+
+        function getFilteredPortfolio() {
+            if (currentTab === 'all') {
+                return portfolio.filter(stock => stock.category !== 'open-orders');
+            } else {
+                return portfolio.filter(stock => stock.category === currentTab);
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update tab button styles
+            document.querySelectorAll('.tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            
+            // Refresh the display with filtered data
+            refreshPrices();
         }
 
         async function fetchStockPrice(symbol) {
@@ -433,8 +492,10 @@
             let totalInvestment = 0;
             let totalCurrentValue = 0;
 
+            const filteredPortfolio = getFilteredPortfolio();
+
             // First pass: calculate totals
-            const stockData = portfolio.map(stock => {
+            const stockData = filteredPortfolio.map(stock => {
                 const currentPrice = priceMap[stock.symbol] || 0;
                 const totalCost = stock.purchasePrice * stock.quantity;
                 const currentValue = currentPrice * stock.quantity;
@@ -516,8 +577,9 @@
         }
 
         function updateChart(priceMap) {
+            const filteredPortfolio = getFilteredPortfolio();
             const aggregated = {};
-            portfolio.forEach(stock => {
+            filteredPortfolio.forEach(stock => {
                 const currentPrice = priceMap[stock.symbol] || 0;
                 const currentValue = currentPrice * stock.quantity;
                 
@@ -583,9 +645,20 @@
 
         async function updateTrendChart() {
             const today = new Date();
+            const filteredPortfolio = getFilteredPortfolio();
+            
+            if (filteredPortfolio.length === 0) {
+                // Clear chart if no stocks to display
+                const ctx = document.getElementById('trendChart').getContext('2d');
+                if (trendChart) {
+                    trendChart.destroy();
+                    trendChart = null;
+                }
+                return;
+            }
             
             // Find the earliest purchase date
-            const earliestDate = portfolio.reduce((earliest, stock) => {
+            const earliestDate = filteredPortfolio.reduce((earliest, stock) => {
                 const stockDate = new Date(stock.purchaseDate + 'T00:00:00');
                 return !earliest || stockDate < earliest ? stockDate : earliest;
             }, null);
@@ -593,7 +666,7 @@
             const fromDate = new Date(earliestDate);
             fromDate.setDate(fromDate.getDate() - 1);
             
-            const uniqueSymbols = [...new Set(portfolio.map(p => p.symbol))];
+            const uniqueSymbols = [...new Set(filteredPortfolio.map(p => p.symbol))];
             
             // Fetch both historical and current prices
             const historicalPromises = uniqueSymbols.map(symbol => 
@@ -644,7 +717,7 @@
             };
 
             const aggregatedPortfolio = {};
-            portfolio.forEach(stock => {
+            filteredPortfolio.forEach(stock => {
                 if (aggregatedPortfolio[stock.symbol]) {
                     const existingDate = new Date(aggregatedPortfolio[stock.symbol].purchaseDate + 'T00:00:00');
                     const newDate = new Date(stock.purchaseDate + 'T00:00:00');
