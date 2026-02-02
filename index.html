@@ -338,17 +338,49 @@
 
     <script>
         const portfolio = [
-            { symbol: 'ET', purchasePrice: 18.105, quantity: 10, purchaseDate: '2026-01-28', category: 'short-term' },
-            { symbol: 'ETN', purchasePrice: 344.02, quantity: 0.5, purchaseDate: '2026-01-28', category: 'mid-long-term' },
-            { symbol: 'CLF', purchasePrice: 14.04, quantity: 7, purchaseDate: '2026-01-28', category: 'short-term' },
-            { symbol: 'APH', purchasePrice: 148.06, quantity: 1.09, purchaseDate: '2026-01-28', category: 'mid-long-term' },
-            { symbol: 'TECK', purchasePrice: 56.47, quantity: 2, purchaseDate: '2026-01-28', category: 'short-term' },
-            { symbol: 'CEG', purchasePrice: 360.43, quantity: 0.5, purchaseDate: '2026-01-28', category: 'mid-long-term' },
-            { symbol: 'CEG', purchasePrice: 288.72, quantity: 0.2, purchaseDate: '2026-01-28', category: 'mid-long-term' },
-            { symbol: 'MU', purchasePrice: 385, quantity: 0.3, purchaseDate: '2026-01-28', category: 'short-term' },
-            { symbol: 'GLW', purchasePrice: 102, quantity: 0.5, purchaseDate: '2026-01-28', category: 'short-term' },
+            // Open Orders (not executed yet, expire March 28)
+            { symbol: 'MU', purchasePrice: 385, quantity: 0.3, purchaseDate: '2026-01-28', category: 'open-orders' },
             { symbol: 'STX', purchasePrice: 345, quantity: 0.15, purchaseDate: '2026-01-28', category: 'open-orders' },
-            { symbol: 'GEV', purchasePrice: 650, quantity: 0.08, purchaseDate: '2026-01-28', category: 'open-orders' }
+            { symbol: 'GEV', purchasePrice: 650, quantity: 0.08, purchaseDate: '2026-01-28', category: 'open-orders' },
+            
+            // Short Term Operation Stocks
+            { symbol: 'AMD', purchasePrice: 233.22, quantity: 0.9, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'AMZN', purchasePrice: 229.89, quantity: 1.0, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'AVGO', purchasePrice: 328.69, quantity: 0.50093, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'BABA', purchasePrice: 179.55, quantity: 2.0, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'BIDU', purchasePrice: 133.97, quantity: 2.0, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'CEG', purchasePrice: 360.43, quantity: 0.50052, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'CLF', purchasePrice: 14.04, quantity: 7.0, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'ETN', purchasePrice: 344.02, quantity: 0.5, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'META', purchasePrice: 692.44, quantity: 0.48038, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'MSFT', purchasePrice: 522.01, quantity: 0.20038, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'ORCL', purchasePrice: 275.37, quantity: 0.30139, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'TSM', purchasePrice: 294.81, quantity: 0.50098, purchaseDate: '2026-01-28', category: 'short-term' },
+            { symbol: 'VST', purchasePrice: 197.52, quantity: 1.0014, purchaseDate: '2026-01-28', category: 'short-term' },
+            
+            // Mid-Long Term Stocks
+            { symbol: 'CEG', purchasePrice: 288.625, quantity: 0.2, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'ET', purchasePrice: 18.105, quantity: 10, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'GLW', purchasePrice: 102.00, quantity: 0.5, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'META', purchasePrice: 701.064, quantity: 0.15, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'MSFT', purchasePrice: 512.38, quantity: 0.2, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'NVDA', purchasePrice: 110.673, quantity: 6.0, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'TECK', purchasePrice: 56.47, quantity: 2.0, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'NVDA', purchasePrice: 44.6425, quantity: 1.79, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'TSLA', purchasePrice: 188.74, quantity: 1.0, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'APH', purchasePrice: 148.0651, quantity: 1.09, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'ET', purchasePrice: 18.15, quantity: 0.02, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'GOOGL', purchasePrice: 148.718, quantity: 2.5, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'IVVD', purchasePrice: 1.2699, quantity: 50, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'META', purchasePrice: 497.165, quantity: 0.1, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'MSFT', purchasePrice: 370.4108, quantity: 0.8, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'NVDA', purchasePrice: 81.1878, quantity: 13.12, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'SPY', purchasePrice: 578.005, quantity: 0.5, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'TEM', purchasePrice: 59.20, quantity: 2.0, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'TQQQ', purchasePrice: 28.41, quantity: 2.0, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'TSLA', purchasePrice: 302.4247, quantity: 0.66, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'VOO', purchasePrice: 485.189, quantity: 0.1, purchaseDate: '2026-01-28', category: 'mid-long-term' },
+            { symbol: 'VST', purchasePrice: 136.10, quantity: 1.0, purchaseDate: '2026-01-28', category: 'mid-long-term' }
         ];
 
         let currentTab = 'all';
@@ -708,16 +740,34 @@
             }
 
             const stockColors = {
-                'ET': '#667eea',
-                'ETN': '#764ba2',
-                'CLF': '#f093fb',
+                'AMD': '#667eea',
+                'AMZN': '#764ba2',
                 'APH': '#4facfe',
-                'TECK': '#43e97b',
-                'CEG': '#fa709a',
-                'MU': '#fee140',
-                'GLW': '#30cfd0',
-                'STX': '#a8edea',
-                'GEV': '#ff6b6b'
+                'AVGO': '#f093fb',
+                'BABA': '#43e97b',
+                'BIDU': '#fa709a',
+                'CEG': '#fee140',
+                'CLF': '#30cfd0',
+                'ET': '#a8edea',
+                'ETN': '#ff6b6b',
+                'GEV': '#ee5a6f',
+                'GLW': '#f7b731',
+                'GOOGL': '#5f27cd',
+                'IVVD': '#00d2d3',
+                'META': '#ff9ff3',
+                'MSFT': '#54a0ff',
+                'MU': '#48dbfb',
+                'NVDA': '#1dd1a1',
+                'ORCL': '#feca57',
+                'SPY': '#ff6348',
+                'STX': '#2e86de',
+                'TECK': '#10ac84',
+                'TEM': '#ee5a6f',
+                'TQQQ': '#576574',
+                'TSM': '#c44569',
+                'TSLA': '#f368e0',
+                'VOO': '#6c5ce7',
+                'VST': '#a29bfe'
             };
 
             const aggregatedPortfolio = {};
