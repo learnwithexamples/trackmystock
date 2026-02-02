@@ -513,6 +513,17 @@
                 const response = await rateLimitedFetch(
                     `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${apiKey}`
                 );
+                
+                if (response.status === 403) {
+                    console.warn(`Historical data not available for ${symbol} (403 Forbidden - may require paid plan)`);
+                    return null;
+                }
+                
+                if (response.status === 429) {
+                    console.error(`Rate limit exceeded for historical ${symbol}`);
+                    return null;
+                }
+                
                 const data = await response.json();
                 
                 if (data.s === 'ok' && data.c && data.c.length > 0) {
@@ -520,6 +531,9 @@
                         timestamps: data.t,
                         prices: data.c
                     };
+                } else if (data.s === 'no_data') {
+                    console.warn(`No historical data available for ${symbol}`);
+                    return null;
                 } else {
                     return null;
                 }
@@ -566,7 +580,17 @@
 
                 updatePortfolioDisplay(priceMap);
                 updateChart(priceMap);
-                await updateTrendChart();
+                
+                // Only fetch trend chart if we have 10 or fewer symbols to avoid too many API calls
+                if (uniqueSymbols.length <= 10) {
+                    await updateTrendChart();
+                } else {
+                    console.log('Skipping trend chart to avoid excessive API calls. Switch to a smaller category to see trends.');
+                    if (trendChart) {
+                        trendChart.destroy();
+                        trendChart = null;
+                    }
+                }
                 
                 document.getElementById('updateTime').textContent = 
                     `Last updated: ${new Date().toLocaleString()}`;
